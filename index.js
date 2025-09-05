@@ -21,9 +21,8 @@ app.get(frontendRoutes.concat("/phonebook").concat("/about"), (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
-// Or more generically (works with React Router)
 app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.join(buildPath, "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 let persons = [
