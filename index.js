@@ -113,6 +113,20 @@ app.post("/api/persons", (request, response) => {
   response.json(person);
 });
 
+// Serve frontend build (React)
+const buildPath = path.join(__dirname, "dist"); // Change if your build folder differs
+app.use(express.static(buildPath));
+
+// Fallback for SPA (must come after API routes)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(buildPath, "index.html"));
+});
+
+// Unknown endpoint handler (for API 404s)
+app.use((req, res) => {
+  res.status(404).json({ error: "unknown endpoint" });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
