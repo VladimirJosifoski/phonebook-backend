@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const morgan = require("morgan");
 const cors = require("cors");
+const path = require("path");
 
 morgan.token("body", (req) => {
   return req.method === "POST" ? JSON.stringify(req.body) : "";
@@ -13,6 +14,11 @@ app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms :body")
 );
 app.use(cors());
+app.use(express.static("dist"));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "dist", "index.html"));
+});
 
 let persons = [
   {
