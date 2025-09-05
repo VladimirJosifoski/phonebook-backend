@@ -1,138 +1,73 @@
 const express = require("express");
-const app = express();
 const morgan = require("morgan");
 const cors = require("cors");
 const path = require("path");
 
-morgan.token("body", (req) => {
-  return req.method === "POST" ? JSON.stringify(req.body) : "";
-});
+const app = express();
 
+// Middleware
 app.use(express.json());
-app.use(morgan("tiny"));
+app.use(cors());
+morgan.token("body", (req) =>
+  req.method === "POST" ? JSON.stringify(req.body) : ""
+);
 app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms :body")
 );
-app.use(cors());
-app.use(express.static("dist"));
 
-const frontendRoutes = ["/", "/info"];
-app.get(frontendRoutes.concat("/phonebook").concat("/about"), (req, res) => {
-  res.sendFile(path.join(buildPath, "index.html"));
-});
-
-app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
-});
-
+// In-memory data
 let persons = [
-  {
-    id: "1",
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: "2",
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: "3",
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: "4",
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
+  { id: "1", name: "Arto Hellas", number: "040-123456" },
+  { id: "2", name: "Ada Lovelace", number: "39-44-5323523" },
+  { id: "3", name: "Dan Abramov", number: "12-43-234345" },
+  { id: "4", name: "Mary Poppendieck", number: "39-23-6423122" },
 ];
 
-app.get("/", (request, response) => {
-  response.send("<h1>Hello World</h1>");
+// API routes
+app.get("/api/persons", (req, res) => res.json(persons));
+
+app.get("/api/persons/:id", (req, res) => {
+  const person = persons.find((p) => p.id === req.params.id);
+  person
+    ? res.json(person)
+    : res.status(404).json({ error: "Person not found" });
 });
 
-app.get("/api/persons", (request, response) => {
-  response.json(persons);
+app.post("/api/persons", (req, res) => {
+  const { name, number } = req.body;
+  if (!name || !number)
+    return res.status(400).json({ error: "Name or number missing" });
+  if (persons.some((p) => p.name === name))
+    return res.status(400).json({ error: "Name must be unique" });
+  const id = String(Math.max(0, ...persons.map((p) => Number(p.id))) + 1);
+  const newPerson = { id, name, number };
+  persons.push(newPerson);
+  res.json(newPerson);
 });
 
-app.get("/info", (request, response) => {
-  const numberOfPersons = persons.length;
-  const currentTime = new Date();
-
-  response.send(`
-  <p>Phonebook has info for ${numberOfPersons} people</p>
-  <p>${currentTime}</p>
-  `);
+app.delete("/api/persons/:id", (req, res) => {
+  persons = persons.filter((p) => p.id !== req.params.id);
+  res.status(204).end();
 });
 
-app.get("/api/persons/:id", (request, response) => {
-  const id = request.params.id;
-  const person = persons.find((person) => person.id === id);
-  if (person) {
-    response.json(person);
-  } else {
-    response.status(404).end();
-  }
-});
-
-app.delete("/api/persons/:id", (request, response) => {
-  const id = request.params.id;
-  persons = persons.filter((person) => person.id !== id);
-
-  response.status(204).end();
-});
-
-const generateId = () => {
-  const maxId =
-    persons.length > 0 ? Math.max(...persons.map((n) => Number(n.id))) : 0;
-  return String(maxId + 1);
-};
-
-app.post("/api/persons", (request, response) => {
-  const body = request.body;
-
-  if (!body.name || !body.number) {
-    return response.status(400).json({
-      error: "name or number missing",
-    });
-  }
-
-  const nameExists = persons.some(
-    (person) => person.name.toLowerCase() === body.name.toLowerCase()
+app.get("/info", (req, res) => {
+  res.send(
+    `<p>Phonebook has info for ${persons.length} people</p><p>${new Date()}</p>`
   );
-  if (nameExists) {
-    return response.status(400).json({
-      error: "name must be unique",
-    });
-  }
-
-  const person = {
-    name: body.name,
-    number: body.number,
-    id: generateId(),
-  };
-
-  persons = persons.concat(person);
-
-  response.json(person);
 });
 
-// Serve frontend build (React)
-const buildPath = path.join(__dirname, "dist"); // Change if your build folder differs
+// Serve frontend build
+const buildPath = path.join(__dirname, "dist");
 app.use(express.static(buildPath));
 
-// Fallback for SPA (must come after API routes)
-app.get("*", (req, res) => {
+// Catch-all for React Router, excluding /api
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
-// Unknown endpoint handler (for API 404s)
-app.use((req, res) => {
-  res.status(404).json({ error: "unknown endpoint" });
-});
+// Unknown endpoint handler
+app.use((req, res) => res.status(404).json({ error: "unknown endpoint" }));
 
+// Start server
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
